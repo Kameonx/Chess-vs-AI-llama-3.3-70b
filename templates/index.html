@@ -182,7 +182,7 @@
         .move-number {
             width: 30px;
             font-weight: bold;
-            color: var (--highlight);
+            color: var(--highlight);
         }
         
         .white-move, .black-move {
@@ -957,9 +957,8 @@
         function removeSquareHighlights() {
             $('#board .square-55d63').removeClass('hint-square');
         }
-    </script>
-</body> // Start a new game with the selected mode
-</html> function startNewGame(mode) {
+
+        function startNewGame(mode) {
             gameMode = mode;
             
             // Update UI to reflect selected mode

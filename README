@@ -1,35 +1,37 @@
-# Chess vs AI
+# Chess vs Llama 3.3 70B
 
-A web-based chess game that allows you to play against a friend or challenge a professional-level AI opponent.
+A web-based chess game that allows you to play against a friend or challenge the Llama 3.3 70B language model in chess.
 
 ---
 
-## Using Chess
+## About This App
+
+This application connects directly to the Llama 3.3 70B API to generate chess moves, allowing you to test your skills against one of the most advanced language models available. The AI's moves are determined entirely by the Llama 3.3 70B LLM's understanding of chess strategy and position analysis.
+
+## Using Chess vs Llama
 
 🐍 Visit the web app hosted here: https://chess-vs-ai-llama-3-3-70b.onrender.com/
 
 😿 If the site is down you may also follow the steps below:
 
-1. Download and Extract the contents of the Zipped folder.
+1. Download and extract the contents of the zipped folder.
 2. Install the required dependencies with `pip install -r requirements.txt`
-3. 
-4. For API-based play, add your OpenAI API key to app.py
-5. Run the application with `python app.py`
-6. Ctrl + Left Click on the 'http://' address that appears in the cmd window.
-7. A new window with the app should open up.
+3. Run the application with `python app.py`
+4. Ctrl + Left Click on the 'http://' address that appears in the command window.
+5. A new window with the app should open up.
 
 ## Game Modes
 
 * **Regular Play**: Play chess against another person on the same device
-* **vs AI**: Challenge the professional-level AI opponent
+* **vs Llama 3.3 70B**: Challenge the Llama 3.3 70B language model
 
-## AI Strength
+## How The AI Works
 
-The AI uses Llama 3.3 70B, a powerful language model playing at a strong chess level.
+The game sends the current board position, move history, and legal moves to the Llama 3.3 70B API. The language model analyzes the position and responds with its chosen move. Unlike traditional chess engines that use algorithms to evaluate positions, Llama 3.3 70B uses its neural network training to understand chess concepts and select moves.
 
 ## Features
 
-* Powerful AI that plays at a Grandmaster level
+* Direct integration with Llama 3.3 70B API
 * Dark theme with high contrast UI
 * Move history tracking
 * Check and checkmate detection
@@ -39,12 +41,12 @@ The AI uses Llama 3.3 70B, a powerful language model playing at a strong chess l
 
 ---
 
-This is my nineth Python Application. Feedback always welcome!
+Feedback always welcome!
 
 Website: https://www.kameon.net
 Email: Kameon@live.com
 
-Created using VS Code, Python, and Venice.ai. February 22, 2025.
+Created using VS Code, Python, and Venice.ai. March 2025.
 
 Thank you,
 

@@ -368,7 +368,7 @@
     <div class="container">
         <div class="header">
             <h1>Chess vs Llama 3.3 70B</h1>
-            <p>Play chess against a friend or challenge the Llama 3.3 70B AI!</p>
+            <p>Play chess against a friend or challenge the Llama 3.3 70B language model!</p>
         </div>
         
         <div class="game-container">
@@ -643,7 +643,7 @@
                         
                         // Show more sophisticated AI thinking message
                         if (gameMode === 'ai') {
-                            $('#status').text('2800+ Grandmaster AI analyzing position...');
+                            $('#status').text('AI analyzing position...');
                             setTimeout(() => {
                                 updateGameStatus(data.status);
                             }, 500);
@@ -748,7 +748,7 @@
                     const turn = game.turn() === 'w' ? 'White' : 'Black';
                     statusText = `${turn} to move`;
                     if (gameMode === 'ai' && turn === 'Black') {
-                        statusText = 'Aggressive AI calculating tactical strikes...';
+                        statusText = 'Llama 3.3 70B is thinking...';
                     }
                     
                     if (game.in_check()) {
@@ -835,7 +835,7 @@
                     if (currentMode === 'regular') {
                         $('#status').text('Regular mode: White to move');
                     } else {
-                        $('#status').text('AI mode: You play as White vs Aggressive Grandmaster AI');
+                        $('#status').text('AI mode: You play as White vs LLama 3.3 70b AI');
                     }
                     
                     // Clear highlights
@@ -970,8 +970,8 @@
             } else {
                 $('#ai-mode').addClass('selected');
                 $('#regular-mode').removeClass('selected');
-                $('#status').text('AI mode: You play as White vs AI');
-                $('#mode-indicator').text('vs AI');
+                $('#status').text('AI mode: You play as White vs Llama 3.3 70B');
+                $('#mode-indicator').text('vs Llama 3.3 70B');
             }
             
             // Request a new game from the server

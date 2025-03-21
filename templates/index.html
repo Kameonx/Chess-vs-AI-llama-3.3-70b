@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chess vs Llama 3.3 70B</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <style>
+        :root {
+            --dark-bg: #1e1e1e;
+            --darker-bg: #121212;
+            --light-text: #f0f0f0;
+            --highlight: #3d85c6;
+            --button-bg: #2c6aa0;
+            --button-hover: #3d85c6;
+            --button-active: #1a5186;
+            --light-square: #e8ebef;
+            --dark-square: #5c78a6;
+            --move-highlight: rgba(255, 255, 0, 0.4);
+            --check-highlight: rgba(255, 0, 0, 0.4);
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            width: 100%;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 5px;
+            color: var(--light-text);
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        
+        .game-container {
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 30px;
+            width: 100%;
+        }
+        
+        .board-container {
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .board {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .info-panel {
+            background-color: var(--darker-bg);
+            padding: 20px;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 300px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: relative; /* Added for absolute positioning of the sound button */
+        }
+        
+        .status {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            height: 30px;
+        }
+        
+        .history {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            background-color: var(--dark-bg);
+            padding: 10px;
+            border-radius: 5px;
+            position: relative; /* For positioning the copy button */
+        }
+        
+        /* Custom scrollbar styling */
+        .history::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .history::-webkit-scrollbar-track {
+            background: var(--darker-bg);
+            border-radius: 4px;
+        }
+        
+        .history::-webkit-scrollbar-thumb {
+            background: var(--button-bg);
+            border-radius: 4px;
+        }
+        
+        .history::-webkit-scrollbar-thumb:hover {
+            background: var(--button-hover);
+        }
+        
+        .copy-history {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 24px;
+            height: 24px;
+            background-color: var(--button-bg);
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.7;
+            transition: opacity 0.2s, background-color 0.2s;
+        }
+        
+        .copy-history:hover {
+            opacity: 1;
+            background-color: var(--button-hover);
+        }
+        
+        .copy-history svg {
+            width: 14px;
+            height: 14px;
+            fill: white;
+        }
+        
+        /* Copy success tooltip */
+        .copy-tooltip {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            background-color: var(--highlight);
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        
+        .copy-tooltip.show {
+            opacity: 1;
+        }
+        
+        .history-item {
+            display: flex;
+            margin-bottom: 5px;
+        }
+        
+        .move-number {
+            width: 30px;
+            font-weight: bold;
+            color: var(--highlight);
+        }
+        
+        .white-move, .black-move {
+            flex: 1;
+            padding: 0 5px;
+        }
+        
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+        
+        .game-mode {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            background-color: var(--button-bg);
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        
+        button:hover {
+            background-color: var(--button-hover);
+        }
+        
+        button:active {
+            background-color: var(--button-active);
+            transform: translateY(2px);
+        }
+        
+        button.selected {
+            background-color: var(--highlight);
+            box-shadow: 0 0 0 2px white;
+        }
+        
+        button.restart {
+            background-color: #c23b22;
+        }
+        
+        button.restart:hover {
+            background-color: #d94e34;
+        }
+        
+        .mode-button {
+            flex: 1;
+        }
+        
+        .highlighted-square {
+            background-color: var(--move-highlight);
+        }
+        
+        .check-highlight {
+            background-color: var(--check-highlight) !important;
+        }
+        
+        /* Custom board colors */
+        .white-1e1d7 {
+            background-color: var(--light-square);
+        }
+        
+        .black-3c85d {
+            background-color: var(--dark-square);
+        }
+        
+        @media (max-width: 768px) {
+            .game-container {
+                flex-direction: column;
+            }
+            
+            .info-panel {
+                max-width: 600px;
+            }
+        }
+        
+        .current-mode {
+            font-size: 1.1rem;
+            background-color: var(--darker-bg);
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--highlight);
+        }
+        
+        .mode-indicator {
+            font-weight: bold;
+            color: var(--highlight);
+        }
+        
+        .sound-toggle {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            width: 32px;
+            height: 32px;
+            background-color: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        
+        .sound-toggle:hover {
+            opacity: 1;
+        }
+        
+        .sound-toggle img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        /* Promotion menu styles */
+        .promotion-menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .promotion-choices {
+            display: flex;
+            gap: 10px;
+            background-color: var(--darker-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+        }
+        
+        .promotion-piece {
+            width: 48px;
+            height: 48px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s;
+        }
+        
+        .promotion-piece:hover {
+            border-color: var(--highlight);
+        }
+
+        .hint-square {
+            background-color: rgba(0, 255, 0, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Chess vs Llama 3.3 70B</h1>
+            <p>Play chess against a friend or challenge the Llama 3.3 70B AI!</p>
+        </div>
+        
+        <div class="game-container">
+            <div class="board-container">
+                <div id="board" class="board"></div>
+                <div class="current-mode" id="current-mode">
+                    Current Mode: <span class="mode-indicator" id="mode-indicator">Not selected</span>
+                </div>
+            </div>
+            
+            <div class="info-panel">
+                <div class="status" id="status">Choose a game mode to begin</div>
+                
+                <div class="game-mode">
+                    <button id="regular-mode" class="mode-button">Regular Play</button>
+                    <button id="ai-mode" class="mode-button">vs Llama 3.3 70B</button>
+                </div>
+                
+                <div class="history" id="move-history">
+                    <!-- Move history will be populated here -->
+                    <button class="copy-history" id="copy-history-btn" title="Copy move history">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512">
+                            <path d="M320 448v40c0 13.255-10.745 24-24 24H24c-13.255 0-24-10.745-24-24V120c0-13.255 10.745-24 24-24h72v296c0 30.879 25.121 56 56 56h168zm0-344V0H152c-13.255 0-24 10.745-24 24v368c0 13.255 10.745 24 24 24h272c13.255 0 24-10.745 24-24V128H344c-13.2 0-24-10.8-24-24zm120.971-31.029L375.029 7.029A24 24 0 0 0 358.059 0H352v96h96v-6.059a24 24 0 0 0-7.029-16.97z"/>
+                        </svg>
+                        <span class="copy-tooltip" id="copy-tooltip">Copied!</span>
+                    </button>
+                </div>
+                
+                <div class="button-group">
+                    <button id="restart-btn" class="restart">Restart Game</button>
+                </div>
+                
+                <!-- Sound toggle button -->
+                <button id="sound-toggle" class="sound-toggle" title="Toggle background music">
+                    <img src="/static/sound-off.png" alt="Sound Off" id="sound-icon">
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Promotion menu -->
+    <div class="promotion-menu" id="promotion-menu" style="display: none;">
+        <div class="promotion-choices" id="promotion-choices">
+            <!-- Promotion piece choices will be populated here -->
+        </div>
+    </div>
+
+    <!-- Audio element for background music -->
+    <audio id="background-music" loop preload="auto">
+        <source src="/audio/Chess Type Beat _ joyful - chess (slowed).mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <script>
+        let board = null;
+        let game = null;
+        let gameId = null;
+        let gameMode = null; // Initialize as null instead of 'regular'
+        let userColor = 'w';
+        let moveHistory = [];
+        let soundEnabled = false;
+        let promotionMove = null;
+        
+        // Initialize the game
+        function initGame() {
+            // Initialize the chess.js game
+            game = new Chess();
+            
+            // Initialize the chessboard
+            const config = {
+                draggable: true,
+                position: 'start',
+                pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png',
+                onDragStart: onDragStart,
+                onDrop: onDrop,
+                onSnapEnd: onSnapEnd
+            };
+            
+            // Create the board
+            board = Chessboard('board', config);
+            
+            // Adjust board size on window resize
+            $(window).resize(function() {
+                board.resize();
+            });
+            
+            // Clear status and history
+            $('#status').text('Choose a game mode to begin');
+            $('#move-history').empty();
+            moveHistory = [];
+            
+            // Reset button states and mode indicator
+            $('#regular-mode').removeClass('selected');
+            $('#ai-mode').removeClass('selected');
+            $('#mode-indicator').text('Not selected');
+
+            // Start a new game in regular mode
+            startNewGame('regular');
+        }
+        
+        // Start a new game with the selected mode
+        function startNewGame(mode) {
+            gameMode = mode;
+            
+            // Update UI to reflect selected mode
+            if (mode === 'regular') {
+                $('#regular-mode').addClass('selected');
+                $('#ai-mode').removeClass('selected');
+                $('#status').text('Regular mode: White to move');
+                $('#mode-indicator').text('Regular Play');
+            } else {
+                $('#ai-mode').addClass('selected');
+                $('#regular-mode').removeClass('selected');
+                $('#status').text('AI mode: You play as White vs AI');
+                $('#mode-indicator').text('vs AI');
+            }
+            
+            // Request a new game from the server
+            $.ajax({
+                url: '/new_game',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ mode: mode }),
+                success: function(data) {
+                    gameId = data.game_id;
+                    game = new Chess(data.fen);
+                    board.position(game.fen());
+                    
+                    // Reset move history
+                    $('#move-history').empty();
+                    moveHistory = [];
+                    
+                    console.log('Game created with ID:', gameId);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error creating new game:', error);
+                    $('#status').text('Error creating game. Please try again.');
+                }
+            });
+        }
+        
+        // Check if a move is valid
+        function onDragStart(source, piece) {
+            removeSquareHighlights();
+            highlightMoves(source); 
+            // Do not allow moves if no game mode is selected or game is not initialized
+            if (!gameMode || !gameId) {
+                $('#status').text('Please select a game mode first');
+                return false;
+            }
+            
+            // Do not allow moves if the game is over
+            if (game.game_over()) return false;
+            
+            // Allow moves only for the current player
+            if (gameMode === 'ai' && piece.search(/^b/) !== -1) {
+                return false; // In AI mode, player only controls white
+            }
+            
+            // Only allow the current player to move their pieces
+            if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+                (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Handle piece drop
+        function onDrop(source, target) {
+            removeSquareHighlights();
+            // Check if game is properly initialized
+            if (!gameId) {
+                $('#status').text('Please select a game mode first');
+                return 'snapback';
+            }
+            
+            // See if the move results in promotion
+            let move = null;
+            try {
+                move = game.move({
+                    from: source,
+                    to: target,
+                    promotion: 'q' // Try promoting to queen by default
+                });
+            } catch (e) {
+                console.error('Error during move:', e);
+                return 'snapback';
+            }
+            
+            if (move === null) return 'snapback';
+            
+            if (move.flags.includes('p')) {
+                // Pawn promotion
+                promotionMove = {
+                    from: source,
+                    to: target,
+                    color: move.color
+                };
+                
+                // Show promotion menu
+                showPromotionMenu(move.color);
+                return;
+            }
+            
+            // Send the move to the server
+            sendMoveToServer(move.from + move.to);
+        }
+        
+        // Show promotion menu
+        function showPromotionMenu(color) {
+            const promotionMenu = $('#promotion-menu');
+            const promotionChoices = $('#promotion-choices');
+            promotionChoices.empty();
+            
+            const pieces = ['q', 'r', 'b', 'n'];
+            
+            pieces.forEach(piece => {
+                const imageUrl = `https://chessboardjs.com/img/chesspieces/wikipedia/${color}${piece.toUpperCase()}.png`;
+                const pieceElement = $(`<img src="${imageUrl}" class="promotion-piece" data-piece="${piece}">`);
+                
+                pieceElement.on('click', function() {
+                    const selectedPiece = $(this).data('piece');
+                    promotionMenu.hide();
+                    
+                    // Send the move with the selected promotion piece
+                    sendMoveToServer(promotionMove.from + promotionMove.to, selectedPiece);
+                    promotionMove = null;
+                });
+                
+                promotionChoices.append(pieceElement);
+            });
+            
+            promotionMenu.css({
+                'top': $('#board').offset().top,
+                'left': $('#board').offset().left,
+                'width': $('#board').width(),
+                'height': $('#board').height()
+            }).show();
+        }
+        
+        // Update board position after drop
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+        
+        // Send move to server and get response
+        function sendMoveToServer(moveUci, promotionPiece = null) {
+            // Validate gameId exists before sending the move
+            if (!gameId) {
+                $('#status').text('Game not initialized. Please start a new game.');
+                return;
+            }
+            
+            $('#status').text('Processing move...');
+            console.log('Sending move to server for game ID:', gameId, 'move:', moveUci, 'promotion:', promotionPiece);
+            
+            $.ajax({
+                url: '/make_move',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    game_id: gameId,
+                    move: moveUci,
+                    promotion: promotionPiece
+                }),
+                success: function(data) {
+                    // Update the board to match server state
+                    game = new Chess(data.fen);
+                    board.position(game.fen());
+                    
+                    // Add the move to history
+                    updateMoveHistory(moveUci);
+                    
+                    // If the AI made a move, add it to history too
+                    if (data.ai_move) {
+                        updateMoveHistory(data.ai_move);
+                        
+                        // Show more sophisticated AI thinking message
+                        if (gameMode === 'ai') {
+                            $('#status').text('2800+ Grandmaster AI analyzing position...');
+                            setTimeout(() => {
+                                updateGameStatus(data.status);
+                            }, 500);
+                        }
+                    }
+                    
+                    // Update game status
+                    updateGameStatus(data.status);
+                    
+                    // Highlight last move
+                    highlightLastMove(data.last_move, data.ai_move);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error details:', xhr.responseText);
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        $('#status').text('Error: ' + response.error);
+                    } catch (e) {
+                        $('#status').text('Error processing move. Please try again.');
+                    }
+                }
+            });
+        }
+        
+        // Update move history display
+        function updateMoveHistory(moveUci) {
+            // Convert UCI format to more readable format
+            const from = moveUci.substring(0, 2);
+            const to = moveUci.substring(2, 4);
+            
+            // Add move to history array
+            moveHistory.push({
+                from: from,
+                to: to,
+                piece: game.get(to) ? game.get(to).type : null,
+                color: game.turn() === 'w' ? 'b' : 'w' // The color that just moved
+            });
+            
+            // Redraw the entire history display
+            $('#move-history').empty();
+            
+            let historyHtml = '';
+            for (let i = 0; i < moveHistory.length; i += 2) {
+                const moveNum = Math.floor(i / 2) + 1;
+                const whiteMove = moveHistory[i];
+                const blackMove = i + 1 < moveHistory.length ? moveHistory[i + 1] : null;
+                
+                historyHtml += `
+                    <div class="history-item">
+                        <div class="move-number">${moveNum}.</div>
+                        <div class="white-move">${formatMove(whiteMove)}</div>
+                        <div class="black-move">${blackMove ? formatMove(blackMove) : ''}</div>
+                    </div>
+                `;
+            }
+            
+            $('#move-history').html(historyHtml);
+            
+            // Scroll to bottom of history
+            const historyDiv = document.getElementById('move-history');
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+
+            // Make sure the copy button is visible when there's history
+            if (moveHistory.length > 0) {
+                $('#copy-history-btn').show();
+            } else {
+                $('#copy-history-btn').hide();
+            }
+        }
+        
+        // Format move for display
+        function formatMove(move) {
+            if (!move) return '';
+            return `${move.from}-${move.to}`;
+        }
+        
+        // Update game status display
+        function updateGameStatus(status) {
+            let statusText = '';
+            
+            // Clear any existing check highlights first
+            $('#board .square-55d63').removeClass('check-highlight');
+            
+            switch (status) {
+                case 'checkmate':
+                    const winner = game.turn() === 'w' ? 'Black' : 'White';
+                    statusText = `Checkmate! ${winner} wins!`;
+                    break;
+                case 'stalemate':
+                    statusText = 'Game over: Stalemate';
+                    break;
+                case 'draw_insufficient_material':
+                    statusText = 'Game over: Draw (insufficient material)';
+                    break;
+                case 'draw_fifty_moves':
+                    statusText = 'Game over: Draw (fifty-move rule)';
+                    break;
+                case 'draw_repetition':
+                    statusText = 'Game over: Draw (threefold repetition)';
+                    break;
+                case 'ongoing':
+                    const turn = game.turn() === 'w' ? 'White' : 'Black';
+                    statusText = `${turn} to move`;
+                    
+                    if (gameMode === 'ai' && turn === 'Black') {
+                        statusText = 'Aggressive AI calculating tactical strikes...';
+                    }
+                    
+                    if (game.in_check()) {
+                        statusText += ' (in check)';
+                        highlightCheck();
+                    }
+                    break;
+                default:
+                    statusText = 'Unknown game state';
+            }
+            
+            $('#status').text(statusText);
+        }
+        
+        // Highlight the king that is in check
+        function highlightCheck() {
+            // Find the king of the current player
+            const squares = $('#board .square-55d63');
+            const turn = game.turn();
+            
+            // Clear any existing check highlights
+            squares.removeClass('check-highlight');
+            
+            // Find the king's position
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    const square = String.fromCharCode(97 + j) + (8 - i);
+                    const piece = game.get(square);
+                    if (piece && piece.type === 'k' && piece.color === turn) {
+                        $(`#board .square-${square}`).addClass('check-highlight');
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // Highlight the last move made
+        function highlightLastMove(playerMove, aiMove) {
+            // Remove any existing highlights including check highlights
+            $('#board .square-55d63').removeClass('highlighted-square check-highlight');
+            
+            if (playerMove) {
+                const from = playerMove.substring(0, 2);
+                const to = playerMove.substring(2, 4);
+                $(`#board .square-${from}`).addClass('highlighted-square');
+                $(`#board .square-${to}`).addClass('highlighted-square');
+            }
+            
+            if (aiMove) {
+                const from = aiMove.substring(0, 2);
+                const to = aiMove.substring(2, 4);
+                $(`#board .square-${from}`).addClass('highlighted-square');
+                $(`#board .square-${to}`).addClass('highlighted-square');
+            }
+        }
+        
+        // Restart the current game
+        function restartGame() {
+            if (!gameMode) {
+                $('#status').text('Please select a game mode first');
+                return;
+            }
+            
+            const currentMode = gameMode;
+            
+            $.ajax({
+                url: '/restart_game',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    game_id: gameId || 'new', // Send 'new' if no gameId exists
+                    mode: currentMode
+                }),
+                success: function(data) {
+                    gameId = data.game_id;
+                    game = new Chess(data.fen);
+                    board.position(game.fen());
+                    
+                    // Reset move history
+                    $('#move-history').empty();
+                    moveHistory = [];
+                    
+                    // Update status
+                    if (currentMode === 'regular') {
+                        $('#status').text('Regular mode: White to move');
+                    } else {
+                        $('#status').text('AI mode: You play as White vs Aggressive Grandmaster AI');
+                    }
+                    
+                    // Clear highlights
+                    $('#board .square-55d63').removeClass('highlighted-square check-highlight hint-square');
+                    
+                    console.log('Game restarted with ID:', gameId);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error restarting game:', error);
+                    $('#status').text('Error restarting game. Please try again.');
+                }
+            });
+        }
+        
+        // Sound toggle functionality
+        function toggleSound() {
+            const backgroundMusic = document.getElementById('background-music');
+            const soundIcon = document.getElementById('sound-icon');
+            
+            if (soundEnabled) {
+                backgroundMusic.pause();
+                soundIcon.src = '/static/sound-off.png';
+                soundIcon.alt = 'Sound Off';
+                soundEnabled = false;
+            } else {
+                const playPromise = backgroundMusic.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        console.log("Audio playback started");
+                    })
+                    .catch(error => {
+                        console.error("Audio playback failed:", error);
+                        $('#status').text('Audio playback failed: ' + error.message);
+                    });
+                }
+                
+                soundIcon.src = '/static/sound-on.png';
+                soundIcon.alt = 'Sound On';
+                soundEnabled = true;
+            }
+        }
+        
+        // Function to copy move history to clipboard
+        function copyMoveHistory() {
+            if (moveHistory.length === 0) return;
+            
+            let historyText = '';
+            for (let i = 0; i < moveHistory.length; i += 2) {
+                const moveNum = Math.floor(i / 2) + 1;
+                const whiteMove = moveHistory[i];
+                const blackMove = i + 1 < moveHistory.length ? moveHistory[i + 1] : null;
+                
+                historyText += `${moveNum}. ${formatMove(whiteMove)} ${blackMove ? formatMove(blackMove) : ''}\n`;
+            }
+            
+            // Copy to clipboard
+            navigator.clipboard.writeText(historyText).then(
+                function() {
+                    // Show success tooltip
+                    $('#copy-tooltip').addClass('show');
+                    setTimeout(() => {
+                        $('#copy-tooltip').removeClass('show');
+                    }, 2000);
+                }, 
+                function(err) {
+                    console.error('Could not copy text: ', err);
+                }
+            );
+        }
+        
+        // Initialize the game when document is ready
+        $(document).ready(function() {
+            // Initialize the game
+            initGame();
+            
+            // Set up button event handlers
+            $('#regular-mode').on('click', function() {
+                startNewGame('regular');
+            });
+            
+            $('#ai-mode').on('click', function() {
+                startNewGame('ai');
+            });
+            
+            $('#restart-btn').on('click', function() {
+                restartGame();
+            });
+            
+            // Sound toggle button event handler
+            $('#sound-toggle').on('click', function() {
+                toggleSound();
+            });
+            
+            // Preload sound icons for smooth transition
+            const soundOnIcon = new Image();
+            soundOnIcon.src = '/static/sound-on.png';
+            
+            const soundOffIcon = new Image();
+            soundOffIcon.src = '/static/sound-off.png';
+
+            // Initially hide the copy button if no moves
+            $('#copy-history-btn').hide();
+            
+            // Set up copy button event handler
+            $('#copy-history-btn').on('click', function(e) {
+                e.preventDefault();
+                copyMoveHistory();
+            });
+        });
+
+        function highlightMoves(square) {
+            const moves = game.moves({ square: square, verbose: true });
+            moves.forEach(m => {
+                $(`#board .square-${m.to}`).addClass('hint-square');
+            });
+        }
+
+        function removeSquareHighlights() {
+            $('#board .square-55d63').removeClass('hint-square');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,51 @@
+# Chess vs AI
+
+A web-based chess game that allows you to play against a friend or challenge a professional-level AI opponent.
+
+---
+
+## Using Chess
+
+🐍 Visit the web app hosted here: https://kameon3.pythonanywhere.com/
+
+😿 If the site is down you may also follow the steps below:
+
+1. Download and Extract the contents of the Zipped folder.
+2. Install the required dependencies with `pip install -r requirements.txt`
+3. 
+4. For API-based play, add your OpenAI API key to app.py
+5. Run the application with `python app.py`
+6. Ctrl + Left Click on the 'http://' address that appears in the cmd window.
+7. A new window with the app should open up.
+
+## Game Modes
+
+* **Regular Play**: Play chess against another person on the same device
+* **vs AI**: Challenge the professional-level AI opponent
+
+## AI Strength
+
+The AI uses Llama 3.3 70B, a powerful language model playing at a strong chess level.
+
+## Features
+
+* Powerful AI that plays at a Grandmaster level
+* Dark theme with high contrast UI
+* Move history tracking
+* Check and checkmate detection
+* Legal move validation
+* Last move highlighting
+* Responsive design for different screen sizes
+
+---
+
+This is my sixth ever Python Application. Feedback always welcome!
+
+Website: https://www.kameon.net
+Email: Kameon@live.com
+
+Created using VS Code, Python, and Venice.ai. February 22, 2025.
+
+Thank you,
+
+-Kameon

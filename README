@@ -6,7 +6,7 @@ A web-based chess game that allows you to play against a friend or challenge a p
 
 ## Using Chess
 
-🐍 Visit the web app hosted here: https://kameon3.pythonanywhere.com/
+🐍 Visit the web app hosted here: 
 
 😿 If the site is down you may also follow the steps below:
 
@@ -39,7 +39,7 @@ The AI uses Llama 3.3 70B, a powerful language model playing at a strong chess l
 
 ---
 
-This is my sixth ever Python Application. Feedback always welcome!
+This is my nineth Python Application. Feedback always welcome!
 
 Website: https://www.kameon.net
 Email: Kameon@live.com

@@ -431,6 +431,7 @@
         let moveHistory = [];
         let soundEnabled = false;
         let promotionMove = null;
+        let isSessionLoaded = false;
         
         // Initialize the game
         function initGame() {
@@ -459,7 +460,7 @@
             setupDragScrollPrevention();
             
             // Clear status and history
-            $('#status').text('Choose a game mode to begin');
+            $('#status').text('Loading your session...');
             $('#move-history').empty();
             moveHistory = [];
             
@@ -468,10 +469,136 @@
             $('#ai-mode').removeClass('selected');
             $('#mode-indicator').text('Not selected');
 
-            // Start a new game in regular mode
-            startNewGame('regular');
+            // Check for existing session before starting a new game
+            checkForExistingSession();
         }
         
+        // Check if the user has an existing session with an active game
+        function checkForExistingSession() {
+            $.ajax({
+                url: '/session_status',
+                type: 'GET',
+                success: function(data) {
+                    console.log('Session status:', data);
+                    isSessionLoaded = true;
+                    
+                    if (data.active_game_id && data.game_data) {
+                        // Restore the existing game
+                        restoreGame(data.game_data);
+                    } else {
+                        // No active game, start a new one
+                        startNewGame('regular');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error checking session:', error);
+                    // Fall back to starting a new game
+                    startNewGame('regular');
+                }
+            });
+        }
+        
+        // Restore a game from session data
+        function restoreGame(gameData) {
+            gameId = gameData.game_id;
+            gameMode = gameData.mode;
+            
+            // Load the game position
+            game = new Chess(gameData.fen);
+            board.position(gameData.fen);
+            
+            // Restore move history
+            moveHistory = [];
+            if (gameData.moves && gameData.moves.length > 0) {
+                // Recreate move history from the move stack
+                const tempGame = new Chess();
+                gameData.moves.forEach(moveUci => {
+                    const from = moveUci.substring(0, 2);
+                    const to = moveUci.substring(2, 4);
+                    const promotion = moveUci.length > 4 ? moveUci.substring(4, 5) : null;
+                    
+                    // Get the piece info before making the move
+                    const piece = tempGame.get(from);
+                    const moveColor = piece ? piece.color : (tempGame.turn() === 'w' ? 'w' : 'b');
+                    
+                    // Make the move
+                    tempGame.move({
+                        from: from,
+                        to: to,
+                        promotion: promotion
+                    });
+                    
+                    // Add to history
+                    moveHistory.push({
+                        from: from,
+                        to: to,
+                        piece: piece ? piece.type : null,
+                        color: moveColor
+                    });
+                });
+                
+                // Update the displayed history
+                updateMoveHistoryDisplay();
+            }
+            
+            // Update UI to show the correct game mode
+            if (gameMode === 'regular') {
+                $('#regular-mode').addClass('selected');
+                $('#ai-mode').removeClass('selected');
+                $('#status').text('Regular mode: ' + (game.turn() === 'w' ? 'White' : 'Black') + ' to move');
+                $('#mode-indicator').text('Regular Play');
+            } else {
+                $('#ai-mode').addClass('selected');
+                $('#regular-mode').removeClass('selected');
+                $('#status').text('AI mode: You play as White vs Llama 3.3 70B');
+                $('#mode-indicator').text('vs Llama 3.3 70B');
+            }
+            
+            // Update game status based on current position
+            const status = game.in_checkmate() ? 'checkmate' : 
+                           game.in_stalemate() ? 'stalemate' :
+                           game.in_threefold_repetition() ? 'draw_repetition' :
+                           game.insufficient_material() ? 'draw_insufficient_material' :
+                           game.in_draw() ? 'draw' : 'ongoing';
+            
+            updateGameStatus(status);
+            
+            console.log('Game restored with ID:', gameId);
+        }
+        
+        // Update just the move history display without changing the data
+        function updateMoveHistoryDisplay() {
+            $('#move-history').empty();
+            
+            let historyHtml = '';
+            for (let i = 0; i < moveHistory.length; i += 2) {
+                const moveNum = Math.floor(i / 2) + 1;
+                const whiteMove = moveHistory[i];
+                const blackMove = i + 1 < moveHistory.length ? moveHistory[i + 1] : null;
+                
+                historyHtml += `
+                    <div class="history-item">
+                        <div class="move-number">${moveNum}.</div>
+                        <div class="white-move">${formatMove(whiteMove)}</div>
+                        <div class="black-move">${blackMove ? formatMove(blackMove) : ''}</div>
+                    </div>
+                `;
+            }
+            
+            $('#move-history').html(historyHtml);
+            
+            // Scroll to bottom of history
+            const historyDiv = document.getElementById('move-history');
+            historyDiv.scrollTop = historyDiv.scrollHeight;
+
+            // Make sure the copy button is visible when there's history
+            if (moveHistory.length > 0) {
+                $('#copy-history-btn').show();
+            } else {
+                $('#copy-history-btn').hide();
+            }
+        }
+
         // Function to prevent scrolling during piece drag on mobile
         function setupDragScrollPrevention() {
             const boardElement = document.getElementById('board');
@@ -682,36 +809,8 @@
                 color: game.turn() === 'w' ? 'b' : 'w' // The color that just moved
             });
             
-            // Redraw the entire history display
-            $('#move-history').empty();
-            
-            let historyHtml = '';
-            for (let i = 0; i < moveHistory.length; i += 2) {
-                const moveNum = Math.floor(i / 2) + 1;
-                const whiteMove = moveHistory[i];
-                const blackMove = i + 1 < moveHistory.length ? moveHistory[i + 1] : null;
-                
-                historyHtml += `
-                    <div class="history-item">
-                        <div class="move-number">${moveNum}.</div>
-                        <div class="white-move">${formatMove(whiteMove)}</div>
-                        <div class="black-move">${blackMove ? formatMove(blackMove) : ''}</div>
-                    </div>
-                `;
-            }
-            
-            $('#move-history').html(historyHtml);
-            
-            // Scroll to bottom of history
-            const historyDiv = document.getElementById('move-history');
-            historyDiv.scrollTop = historyDiv.scrollHeight;
-
-            // Make sure the copy button is visible when there's history
-            if (moveHistory.length > 0) {
-                $('#copy-history-btn').show();
-            } else {
-                $('#copy-history-btn').hide();
-            }
+            // Update the display
+            updateMoveHistoryDisplay();
         }
         
         // Format move for display
@@ -911,6 +1010,14 @@
         $(document).ready(function() {
             // Initialize the game
             initGame();
+            
+            // Set up event handlers for page visibility changes to maintain session
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden && isSessionLoaded) {
+                    // When page becomes visible again, check if game state needs to be refreshed
+                    checkForExistingSession();
+                }
+            });
             
             // Set up button event handlers
             $('#regular-mode').on('click', function() {

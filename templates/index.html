@@ -182,7 +182,7 @@
         .move-number {
             width: 30px;
             font-weight: bold;
-            color: var(--highlight);
+            color: var (--highlight);
         }
         
         .white-move, .black-move {
@@ -346,6 +346,22 @@
         .hint-square {
             background-color: rgba(0, 255, 0, 0.4);
         }
+        
+        /* Improve touch interactions on mobile */
+        @media (max-width: 768px) {
+            .board-container {
+                touch-action: none; /* Prevents browser handling of touch events */
+                -webkit-user-select: none; /* Safari */
+                -ms-user-select: none; /* IE 10+ */
+                user-select: none; /* Standard syntax */
+            }
+            
+            /* Make buttons slightly larger for touch devices */
+            button {
+                padding: 14px 22px;
+                min-height: 48px; /* Minimum touch target size */
+            }
+        }
     </style>
 </head>
 <body>
@@ -439,6 +455,9 @@
                 board.resize();
             });
             
+            // Prevent scrolling when dragging pieces on mobile
+            setupDragScrollPrevention();
+            
             // Clear status and history
             $('#status').text('Choose a game mode to begin');
             $('#move-history').empty();
@@ -453,44 +472,36 @@
             startNewGame('regular');
         }
         
-        // Start a new game with the selected mode
-        function startNewGame(mode) {
-            gameMode = mode;
+        // Function to prevent scrolling during piece drag on mobile
+        function setupDragScrollPrevention() {
+            const boardElement = document.getElementById('board');
             
-            // Update UI to reflect selected mode
-            if (mode === 'regular') {
-                $('#regular-mode').addClass('selected');
-                $('#ai-mode').removeClass('selected');
-                $('#status').text('Regular mode: White to move');
-                $('#mode-indicator').text('Regular Play');
-            } else {
-                $('#ai-mode').addClass('selected');
-                $('#regular-mode').removeClass('selected');
-                $('#status').text('AI mode: You play as White vs AI');
-                $('#mode-indicator').text('vs AI');
-            }
+            // Track if dragging is in progress - define at higher scope level
+            window.isDragging = false;
             
-            // Request a new game from the server
-            $.ajax({
-                url: '/new_game',
-                type: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ mode: mode }),
-                success: function(data) {
-                    gameId = data.game_id;
-                    game = new Chess(data.fen);
-                    board.position(game.fen());
-                    
-                    // Reset move history
-                    $('#move-history').empty();
-                    moveHistory = [];
-                    
-                    console.log('Game created with ID:', gameId);
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error creating new game:', error);
-                    $('#status').text('Error creating game. Please try again.');
+            // Prevent touch events from causing page scroll during drag
+            boardElement.addEventListener('touchmove', function(e) {
+                if (window.isDragging) {
+                    e.preventDefault();
                 }
+            }, { passive: false });
+            
+            // Set dragging flag to true on piece pickup
+            boardElement.addEventListener('mousedown', function() {
+                window.isDragging = true;
+            });
+            
+            boardElement.addEventListener('touchstart', function() {
+                window.isDragging = true;
+            });
+            
+            // Reset dragging flag when piece is placed
+            document.addEventListener('mouseup', function() {
+                window.isDragging = false;
+            });
+            
+            document.addEventListener('touchend', function() {
+                window.isDragging = false;
             });
         }
         
@@ -503,7 +514,6 @@
                 $('#status').text('Please select a game mode first');
                 return false;
             }
-            
             // Do not allow moves if the game is over
             if (game.game_over()) return false;
             
@@ -737,7 +747,6 @@
                 case 'ongoing':
                     const turn = game.turn() === 'w' ? 'White' : 'Black';
                     statusText = `${turn} to move`;
-                    
                     if (gameMode === 'ai' && turn === 'Black') {
                         statusText = 'Aggressive AI calculating tactical strikes...';
                     }
@@ -891,7 +900,7 @@
                     setTimeout(() => {
                         $('#copy-tooltip').removeClass('show');
                     }, 2000);
-                }, 
+                },
                 function(err) {
                     console.error('Could not copy text: ', err);
                 }
@@ -924,10 +933,10 @@
             // Preload sound icons for smooth transition
             const soundOnIcon = new Image();
             soundOnIcon.src = '/static/sound-on.png';
-            
+                        
             const soundOffIcon = new Image();
             soundOffIcon.src = '/static/sound-off.png';
-
+            
             // Initially hide the copy button if no moves
             $('#copy-history-btn').hide();
             
@@ -947,6 +956,50 @@
 
         function removeSquareHighlights() {
             $('#board .square-55d63').removeClass('hint-square');
+        }
+    </script>
+</body> // Start a new game with the selected mode
+</html> function startNewGame(mode) {
+            gameMode = mode;
+            
+            // Update UI to reflect selected mode
+            if (mode === 'regular') {
+                $('#regular-mode').addClass('selected');
+                $('#ai-mode').removeClass('selected');
+                $('#status').text('Regular mode: White to move');
+                $('#mode-indicator').text('Regular Play');
+            } else {
+                $('#ai-mode').addClass('selected');
+                $('#regular-mode').removeClass('selected');
+                $('#status').text('AI mode: You play as White vs AI');
+                $('#mode-indicator').text('vs AI');
+            }
+            
+            // Request a new game from the server
+            $.ajax({
+                url: '/new_game',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ mode: mode }),
+                success: function(data) {
+                    gameId = data.game_id;
+                    game = new Chess(data.fen);
+                    board.position(game.fen());
+                    
+                    // Reset move history
+                    $('#move-history').empty();
+                    moveHistory = [];
+                    
+                    // Clear highlights
+                    $('#board .square-55d63').removeClass('highlighted-square check-highlight hint-square');
+                    
+                    console.log('Game created with ID:', gameId);
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error creating new game:', error);
+                    $('#status').text('Error creating game. Please try again.');
+                }
+            });
         }
     </script>
 </body>

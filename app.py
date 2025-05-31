@@ -2,11 +2,14 @@ from flask import Flask, render_template, request, jsonify, send_from_directory,
 import chess
 import random
 import requests
-import json
 import os
 import logging
 import uuid
 from datetime import timedelta
+
+# Load environment variables from .env
+from dotenv import load_dotenv
+load_dotenv()
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -17,8 +20,11 @@ app.secret_key = os.environ.get('SECRET_KEY', 'dev_secret_key_for_sessions')  # 
 app.permanent_session_lifetime = timedelta(days=7)  # Session lasts for 7 days
 
 # Llama 3.3 70B API settings
-LLAMA_API_KEY = "-Y3up9vlEXoVFf1ZsrXhB4rbPXd8V6ywgiSZziI3bR"
+LLAMA_API_KEY = os.environ.get('LLAMA_API_KEY', '')
 LLAMA_API_URL = "https://api.venice.ai/api/v1/chat/completions"  # Corrected API endpoint
+
+if not LLAMA_API_KEY:
+    raise RuntimeError("LLAMA_API_KEY is not set in environment variables or .env file.")
 
 # Store games in memory (in a production app, you'd use a database)
 games = {}
@@ -68,33 +74,51 @@ def session_status():
 @app.route('/new_game', methods=['POST'])
 def new_game():
     user_id = get_session_id()
-    mode = request.json.get('mode', 'regular')  # 'regular' or 'ai'
-    
+    data = request.get_json() or {}
+    mode = data.get('mode', 'regular')  # 'regular' or 'ai'
+    ai_side = data.get('ai_side', 'black')  # Optional: 'white' or 'black', default is 'black'
+
     # Generate a new game ID
     game_id = str(random.randint(1000, 9999))
-    
+
     logger.info(f"Creating new game with ID {game_id}, mode: {mode} for user {user_id}")
-    
+
+    from datetime import datetime
+    board = chess.Board()
     games[game_id] = {
-        'board': chess.Board(),
+        'board': board,
         'mode': mode,
         'user_id': user_id,
-        'created_at': logging.Formatter.formatTime(logging.root.handlers[0].formatter, logging.LogRecord('', 0, '', 0, None, None, None, None))
+        'created_at': datetime.now().isoformat()
     }
-    
+
+    # If AI is to play as White, make the first move
+    ai_move = None
+    if mode == 'ai' and ai_side == 'white':
+        try:
+            ai_move = get_ai_move(board)
+            if ai_move:
+                board.push(ai_move)
+                logger.info(f"AI (White) moved: {ai_move.uci()}")
+            else:
+                logger.error("AI did not return a valid move as White")
+        except Exception as e:
+            logger.error(f"Error making AI move as White: {str(e)}")
+
     # Update the user's session with the active game
     session['active_game_id'] = game_id
-    
+
     return jsonify({
         'game_id': game_id,
         'fen': games[game_id]['board'].fen(),
-        'mode': mode
+        'mode': mode,
+        'ai_move': ai_move.uci() if ai_move else None
     })
 
 @app.route('/make_move', methods=['POST'])
 def make_move():
     user_id = get_session_id()
-    data = request.json
+    data = request.get_json() or {}
     game_id = data.get('game_id')
     move_uci = data.get('move')
     promotion = data.get('promotion')
@@ -115,7 +139,7 @@ def make_move():
     
     # Process player's move
     try:
-        move = chess.Move.from_uci(move_uci + (promotion if promotion else ''))
+        move = chess.Move.from_uci((move_uci or '') + (promotion or ''))
         if move not in board.legal_moves:
             logger.warning(f"Illegal move attempted: {move_uci}, promotion: {promotion}")
             return jsonify({'error': 'Illegal move'}), 400
@@ -165,7 +189,7 @@ def make_move():
 @app.route('/restart_game', methods=['POST'])
 def restart_game():
     user_id = get_session_id()
-    data = request.json
+    data = request.json or {}
     game_id = data.get('game_id')
     mode = data.get('mode', 'regular')
     
@@ -180,11 +204,12 @@ def restart_game():
         game_id = str(random.randint(1000, 9999))
         logger.info(f"User {user_id} attempted to restart game {game_id} they don't own, creating new game instead")
     
+    from datetime import datetime
     games[game_id] = {
         'board': chess.Board(),
         'mode': mode,
         'user_id': user_id,
-        'created_at': logging.Formatter.formatTime(logging.root.handlers[0].formatter, logging.LogRecord('', 0, '', 0, None, None, None, None))
+        'created_at': datetime.now().isoformat()
     }
     
     # Update the user's session with the active game
@@ -217,12 +242,9 @@ def get_ai_move(board):
 def get_llama_move(board):
     """Get a move from the Llama 3.3 70B AI model with human-like grandmaster play."""
     try:
-        # Get legal moves
         legal_moves = list(board.legal_moves)
         if not legal_moves:
             raise ValueError("No legal moves available")
-        
-        # Just return first move if only one is available
         if len(legal_moves) == 1:
             return legal_moves[0]
         
@@ -336,12 +358,19 @@ Reply ONLY with your chosen move in UCI format (e.g. "e2e4").
             "messages": [
                 {
                     "role": "system", 
-                    "content": "You are a human chess grandmaster with a creative, positional style. Think about the whole position, using multiple pieces in coordination. Avoid fixating on just one piece. Respond with only your chosen move in UCI notation."
+                    "content": (
+                        "You are a human chess grandmaster with a creative, positional style. "
+                        "You always consider at least 3 different candidate moves before choosing. "
+                        "You avoid repeating the same moves or patterns, and you do not always play the same opening or reply. "
+                        "You enjoy variety and sometimes play less common but still strong moves. "
+                        "Think about the whole position, using multiple pieces in coordination. "
+                        "Avoid fixating on just one piece. Respond with only your chosen move in UCI notation."
+                    )
                 },
                 {"role": "user", "content": prompt}
             ],
             "max_tokens": 20,
-            "temperature": 0.3,  # Higher temperature for more creative/diverse play
+            "temperature": 0.5,  # Slightly higher for more diverse play
             "top_p": 0.95
         }
         
@@ -350,12 +379,12 @@ Reply ONLY with your chosen move in UCI format (e.g. "e2e4").
         response = requests.post(LLAMA_API_URL, headers=headers, json=data, timeout=30)
         
         if response.status_code != 200:
-            raise ValueError(f"Llama API error: {response.status_code}")
+            raise ValueError(f"Lamma API error: {response.status_code}")
         
         # Parse the response
         response_data = response.json()
         move_text = response_data["choices"][0]["message"]["content"].strip().lower()
-        logger.info(f"Llama suggested: {move_text}")
+        logger.info(f"Lamma suggested: {move_text}")
         
         # Extract the UCI move from the text
         import re
@@ -364,22 +393,22 @@ Reply ONLY with your chosen move in UCI format (e.g. "e2e4").
         
         if match:
             suggested_move = match.group(1)
-            # Validate the move is legal
             for move in legal_moves:
                 if move.uci() == suggested_move:
-                    logger.info(f"Using Llama's move: {suggested_move}")
+                    logger.info(f"Using Lamma's move: {suggested_move}")
                     return move
-            
-            # If move is not legal, use simple fallback
-            logger.warning(f"Llama suggested illegal move: {suggested_move}, using simple fallback.")
+            logger.warning(f"Lamma suggested illegal move: {suggested_move}, using simple fallback.")
             return get_smart_fallback_move(board, legal_moves)
         else:
             logger.warning(f"Could not extract a valid move from: {move_text}")
             return get_smart_fallback_move(board, legal_moves)
-        
     except Exception as e:
         logger.error(f"Error in get_llama_move: {str(e)}")
-        # If all else fails, use a fallback method but only as a last resort
+        # Ensure legal_moves is defined for fallback
+        try:
+            legal_moves = list(board.legal_moves)
+        except Exception:
+            legal_moves = []
         return get_smart_fallback_move(board, legal_moves)
 
 def get_smart_fallback_move(board, legal_moves):
@@ -444,7 +473,7 @@ def get_smart_fallback_move(board, legal_moves):
             # It's unsafe if:
             # 1. It's a queen move to an attacked square
             # 2. The attacker is of lower value than our piece
-            if is_queen_move or piece.piece_type in [chess.QUEEN, chess.ROOK]:
+            if is_queen_move or piece.piece_type in [chess.WHITE, chess.ROOK]:
                 # Check what's attacking this square (to avoid trading queen for pawn, etc.)
                 attackers = []
                 for attack_sq in chess.SQUARES:
